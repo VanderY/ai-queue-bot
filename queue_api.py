@@ -1,3 +1,5 @@
+import sys
+
 import requests
 import register
 
@@ -14,17 +16,10 @@ def callback_to_json(data):
 
 
 def add_student(callback_data):
-    try:
-        if register.is_registered(callback_data["telegramId"]):
-            r = requests.post(url="http://localhost:8080/api/putIntoTheQueue", json=callback_data)
-            return r.text.__contains__("done done done ")
-    except:
-        return False
+    print(callback_data)
+    if register.is_registered(callback_data["telegramId"]):
+        r = requests.post(url="https://chix-pix.com/api/putIntoTheQueue", json=callback_data)
 
-
-# def register(data):
-#     r = requests.post(url="http://localhost:8080/api/register/", json=data)
-#     if r.text.__contains__(data["telegramId"]):
-#         return True
-#     else:
-#         return False
+        print(r.text)
+        return r.text.__contains__("done done done ")
+    return False

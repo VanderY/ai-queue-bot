@@ -24,6 +24,7 @@ async def process_callback_button1(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
     parsed_data = queue_api.callback_to_json(str(callback_query.from_user.id) + ";" + callback_query.data)
     is_added = queue_api.add_student(parsed_data)
+    print(is_added)
     date = datetime.strptime(parsed_data["date"], '%Y-%m-%d')
     if is_added:
         await bot.edit_message_text(text=f'Вы успешно записались на {parsed_data["qPlace"]} место\n'
@@ -31,8 +32,7 @@ async def process_callback_button1(callback_query: types.CallbackQuery):
                                     chat_id=callback_query.message.chat.id,
                                     message_id=callback_query.message.message_id)
     else:
-        await bot.edit_message_text(text=f'Упс.....\n'
-                                         f'Что-то пошло не так :^)',
+        await bot.edit_message_text(text=f'Зарегистрируйтесь при помощи команды /reg Фамилия Имя',
                                     chat_id=callback_query.message.chat.id,
                                     message_id=callback_query.message.message_id)
 

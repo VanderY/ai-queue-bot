@@ -8,8 +8,8 @@ def get_lessons(lessons, date):
     i = 1
     for lesson in lessons:
         lesson_btn = InlineKeyboardButton(
-            str(i) + ". " + lesson['lesson'] + " (" + lesson['lessonType'] + ") " + (
-                str(lesson['subgroup']) + " подгр." if lesson['subgroup'] != 0 else ""),
+            str(i) + ". " + lesson['lesson'] + " (" + lesson['lessonType'] + ") " +
+            (str(lesson['subgroup']) + " подгр." if lesson['subgroup'] != 0 else ""),
             callback_data="lesson;" + lesson['lesson'] + ";" + lesson['lessonType'] + ";" + str(
                 lesson['subgroup']) + ";" + date)
         lessons_keyboard.add(lesson_btn)
