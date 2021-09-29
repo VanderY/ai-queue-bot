@@ -24,6 +24,8 @@ async def process_callback_button1(callback_query: types.CallbackQuery):
                                 chat_id=callback_query.message.chat.id,
                                 message_id=callback_query.message.message_id)
     # await bot.send_message(callback_query.from_user.id, 'Пожалуйста, напишите свой номер телефона')
+
+
 # ------------------------Queue placement-----------------------------------------------------
 
 
@@ -41,14 +43,24 @@ async def calendar(message: types.Message):
     await message.answer('Пожалуйтса, выберите дату:', reply_markup=cld)
 
 
-@dp.message_handler(commands=['start', 'help'])
+@dp.message_handler(commands=['name'])
 async def send_welcome(message: types.Message):
-    """
-    This handler will be called when user sends `/start` or `/help` command
-    """
-    await message.answer("Здарова!\n"
-                         "Я тестовый бот\n"
-                         "Напиши /calendar чтобы протестировать самую свежую функцию!")
+    args = message.get_args()
+    await message.answer(f"Args: {args}")
+
+
+@dp.message_handler(commands=['group'])
+async def send_welcome(message: types.Message):
+    args = message.get_args()
+    await message.answer(f"Args: {args}")
+
+
+@dp.message_handler(commands=['start'])
+async def send_welcome(message: types.Message):
+    username = message.from_user.username
+    telegram_id = message.from_user.id
+    await message.answer(f"Привет {username}!\n"
+                         f"Твой telegram_id: {telegram_id}")
 
 
 if __name__ == '__main__':

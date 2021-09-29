@@ -1,6 +1,6 @@
 import requests
 
-BASE_API_URL = "http://localhost:8080/api/"
+BASE_API_URL = "http://chix-pix.com/api/"
 
 
 def get_schedule(group, date):
