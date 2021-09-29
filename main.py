@@ -5,6 +5,8 @@ from aiogram import Bot, Dispatcher, executor, types
 import keyboards as kb
 import Student
 import register
+import queue_api
+from datetime import datetime
 
 import api_queue_parser as api
 
@@ -17,17 +19,23 @@ bot = Bot(token=config.TG_API_TOKEN)
 dp = Dispatcher(bot)
 
 
-# ------------------------Queue placement-----------------------------------------------------
 @dp.callback_query_handler(lambda c: c.data.startswith('lesson'))
 async def process_callback_button1(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
-    username = callback_query.from_user.username
-    await bot.edit_message_text(text=f'Заглушка для записи в очередь\n@{username} выбрал {callback_query.data}',
-                                chat_id=callback_query.message.chat.id,
-                                message_id=callback_query.message.message_id)
+    parsed_data = queue_api.callback_to_json(str(callback_query.from_user.id) + ";" + callback_query.data)
+    is_added = queue_api.add_student(parsed_data)
+    date = datetime.strptime(parsed_data["date"], '%Y-%m-%d')
+    if is_added:
+        await bot.edit_message_text(text=f'Вы успешно записались на {parsed_data["qPlace"]} место\n'
+                                         f'на {parsed_data["subject"]} {date.strftime("%d.%m.%Y")}',
+                                    chat_id=callback_query.message.chat.id,
+                                    message_id=callback_query.message.message_id)
+    else:
+        await bot.edit_message_text(text=f'Упс.....\n'
+                                         f'Что-то пошло не так :^)',
+                                    chat_id=callback_query.message.chat.id,
+                                    message_id=callback_query.message.message_id)
 
-
-# ------------------------Queue placement-----------------------------------------------------
 
 @dp.callback_query_handler(lambda c: c.data.startswith('subgroup'))
 async def callback_group(callback_query: types.CallbackQuery):

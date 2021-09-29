@@ -14,7 +14,7 @@ def callback_to_json(data):
 
 
 def is_registered(telegramId):
-    r = requests.get(url=f"http://192.168.142.195:8080/api/isRegistered/{telegramId}")
+    r = requests.get(url=f"http://localhost:8080/api/isRegistered/{telegramId}")
     response = r.text
     if response == "true":
         return True
@@ -23,7 +23,7 @@ def is_registered(telegramId):
 
 
 def register(data):
-    r = requests.post(url="http://192.168.142.195:8080/api/register/", json=data)
+    r = requests.post(url="http://localhost:8080/api/register/", json=data)
     if r.text.__contains__(data["telegramId"]):
         return True
     else:
