@@ -32,7 +32,7 @@ async def process_callback_button1(callback_query: types.CallbackQuery):
                                     chat_id=callback_query.message.chat.id,
                                     message_id=callback_query.message.message_id)
     else:
-        await bot.edit_message_text(text=f'Зарегистрируйтесь при помощи команды /reg Фамилия Имя',
+        await bot.edit_message_text(text=f'Произошла непредвиденная ошибка, пожалуйста попробуйте позже',
                                     chat_id=callback_query.message.chat.id,
                                     message_id=callback_query.message.message_id)
 
@@ -66,8 +66,11 @@ async def callback_calendar(callback_query: types.CallbackQuery):
 
 @dp.message_handler(commands=['calendar'])
 async def calendar(message: types.Message):
-    cld = tgcalendar.create_calendar()
-    await message.answer('Пожалуйтса, выберите дату:', reply_markup=cld)
+    if register.is_registered(message.from_user.id):
+        cld = tgcalendar.create_calendar()
+        await message.answer('Пожалуйтса, выберите дату:', reply_markup=cld)
+    else:
+        await message.answer('Зарегистрируйтесь при помощи команды /reg Фамилия Имя')
 
 
 @dp.message_handler(commands=['reg'])

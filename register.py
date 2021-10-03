@@ -1,5 +1,6 @@
 import json
 import requests
+from config import BASE_API_URL
 
 
 def callback_to_json(data):
@@ -14,7 +15,7 @@ def callback_to_json(data):
 
 
 def is_registered(telegramId):
-    r = requests.get(url=f"https://chix-pix.com/api/isRegistered/{telegramId}")
+    r = requests.get(url=f"{BASE_API_URL}isRegistered/{telegramId}")
     response = r.text
     if response == "true":
         return True
@@ -23,7 +24,7 @@ def is_registered(telegramId):
 
 
 def register(data):
-    r = requests.post(url="https://chix-pix.com/api/register/", json=data)
+    r = requests.post(url=BASE_API_URL + "register/", json=data)
     if r.text.__contains__(data["telegramId"]):
         return True
     else:

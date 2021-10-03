@@ -3,6 +3,8 @@ import sys
 import requests
 import register
 
+from config import BASE_API_URL
+
 
 def callback_to_json(data):
     separated_data = data.split(";")
@@ -18,7 +20,7 @@ def callback_to_json(data):
 def add_student(callback_data):
     print(callback_data)
     if register.is_registered(callback_data["telegramId"]):
-        r = requests.post(url="https://chix-pix.com/api/putIntoTheQueue", json=callback_data)
+        r = requests.post(url=BASE_API_URL + "putIntoTheQueue", json=callback_data)
 
         print(r.text)
         return r.text.__contains__("done done done ")

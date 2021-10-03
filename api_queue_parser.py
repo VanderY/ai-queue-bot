@@ -1,6 +1,5 @@
 import requests
-
-BASE_API_URL = "https://chix-pix.com/api/"
+from config import BASE_API_URL
 
 
 def get_schedule(group, date):
