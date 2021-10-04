@@ -1,4 +1,8 @@
 import logging
+
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+from StateMachine import StateMachine
 import config
 import TGCalendar.telegramcalendar as tgcalendar
 from aiogram import Bot, Dispatcher, executor, types
@@ -7,6 +11,8 @@ import Student
 import register
 import queue_api
 from datetime import datetime
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.contrib.middlewares.logging import LoggingMiddleware
 
 import api_queue_parser as api
 
@@ -16,29 +22,39 @@ ADMIN_ID = 465801855
 logging.basicConfig(level=logging.INFO)
 # Initialize bot and dispatcher
 bot = Bot(token=config.TG_API_TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher(bot, storage=MemoryStorage())
+dp.middleware.setup(LoggingMiddleware())
 
 
-@dp.callback_query_handler(lambda c: c.data.startswith('lesson'))
-async def process_callback_button1(callback_query: types.CallbackQuery):
+@dp.callback_query_handler(lambda c: c.data.startswith('lesson'), state=StateMachine.QUEUE_NUMBER_WAITING)
+async def process_lesson_callback(callback_query: types.CallbackQuery):
+    state = dp.current_state(user=callback_query.message.chat.id)
+    await state.set_state(StateMachine.all()[0])
     await bot.answer_callback_query(callback_query.id)
-    parsed_data = queue_api.callback_to_json(str(callback_query.from_user.id) + ";" + callback_query.data)
+    await state.set_data(callback_query.data)
+    await bot.edit_message_text(text=f'Напишите предпочитаемый номер в очереди\n{str(await state.get_data())}',
+                                chat_id=callback_query.message.chat.id,
+                                message_id=callback_query.message.message_id)
+
+
+@dp.message_handler(state=StateMachine.QUEUE_NUMBER_RECEIVED)
+async def place_in_queue_message(message: types.Message):
+    state = dp.current_state(user=message.chat.id)
+    parsed_data = queue_api.callback_to_json(str(message.from_user.id)
+                                             + ";" + str(await state.get_data())
+                                             + ";" + message.text)
     is_added = queue_api.add_student(parsed_data)
     print(is_added)
     date = datetime.strptime(parsed_data["date"], '%Y-%m-%d')
     if is_added:
-        await bot.edit_message_text(text=f'Вы успешно записались на {parsed_data["qPlace"]} место\n'
-                                         f'на {parsed_data["subject"]} {date.strftime("%d.%m.%Y")}',
-                                    chat_id=callback_query.message.chat.id,
-                                    message_id=callback_query.message.message_id)
+        await message.answer(f'Вы успешно записались на {parsed_data["qplace"]} место\n'
+                             f'на {parsed_data["subject"]} {date.strftime("%d.%m.%Y")}')
     else:
-        await bot.edit_message_text(text=f'Произошла непредвиденная ошибка, пожалуйста попробуйте позже',
-                                    chat_id=callback_query.message.chat.id,
-                                    message_id=callback_query.message.message_id)
+        await message.answer('Произошла непредвиденная ошибка, пожалуйста попробуйте позже')
 
 
 @dp.callback_query_handler(lambda c: c.data.startswith('subgroup'))
-async def callback_group(callback_query: types.CallbackQuery):
+async def callback_subgroup(callback_query: types.CallbackQuery):
     parsed_data = register.callback_to_json(callback_query.data)
     register_status = register.register(parsed_data)
     await bot.answer_callback_query(callback_query.id)
@@ -57,20 +73,23 @@ async def callback_group(callback_query: types.CallbackQuery):
                                 reply_markup=subgroups)
 
 
-@dp.callback_query_handler(lambda c: c.data)
-async def callback_calendar(callback_query: types.CallbackQuery):
-    response = tgcalendar.process_calendar_selection(bot, callback_query)
-    await response[0]
-    await bot.answer_callback_query(callback_query.id)
-
-
 @dp.message_handler(commands=['calendar'])
 async def calendar(message: types.Message):
     if register.is_registered(message.from_user.id):
+        state = dp.current_state(user=message.chat.id)
+        await state.reset_state()
+        await state.set_state(StateMachine.all()[1])
         cld = tgcalendar.create_calendar()
         await message.answer('Пожалуйтса, выберите дату:', reply_markup=cld)
     else:
         await message.answer('Зарегистрируйтесь при помощи команды /reg Фамилия Имя')
+
+
+@dp.callback_query_handler(lambda c: c.data, state=StateMachine.QUEUE_NUMBER_WAITING)
+async def callback_calendar(callback_query: types.CallbackQuery):
+    response = tgcalendar.process_calendar_selection(bot, callback_query)
+    await response[0]
+    await bot.answer_callback_query(callback_query.id)
 
 
 @dp.message_handler(commands=['reg'])
