@@ -17,11 +17,10 @@ def get_lessons(lessons, date):
     return lessons_keyboard
 
 
-def group_choose(groups, student: Student):
+def group_choose(groups):
     group_keyboard = InlineKeyboardMarkup(row_width=1)
     for group in groups:
-        group_btn = InlineKeyboardButton(group, callback_data="group;" + str(group) + ";"
-                                                              + student.name + ";" + str(student.telegram_id))
+        group_btn = InlineKeyboardButton(group, callback_data="group;" + str(group))
         group_keyboard.add(group_btn)
     return group_keyboard
 
@@ -31,3 +30,10 @@ def get_subgroup(student_data):
     subgroup1_btn = InlineKeyboardButton("1", callback_data="subgroup;1;" + student_data)
     subgroup2_btn = InlineKeyboardButton("2", callback_data="subgroup;2;" + student_data)
     return subgroup_keyboard.add(subgroup1_btn, subgroup2_btn)
+
+
+def yes_no_keyboard(number_in_queue):
+    yes_no_kb = InlineKeyboardMarkup(row_width=2)
+    yes_btn = InlineKeyboardButton("Да", callback_data="choose;yes")
+    no_btn = InlineKeyboardButton("Нет", callback_data="choose;no")
+    return yes_no_kb.add(yes_btn, no_btn)

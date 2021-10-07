@@ -17,11 +17,11 @@ def callback_to_json(data):
     return json_data
 
 
-def add_student(callback_data):
+def add_student(callback_data) -> str:
     print(callback_data)
     if register.is_registered(callback_data["telegramId"]):
         try:
             r = requests.post(url=BASE_API_URL + "putIntoTheQueue", json=callback_data)
-            return True
+            return r.text.replace('"', '')
         except requests.exceptions:
-            return False
+            return ""

@@ -75,7 +75,7 @@ def create_calendar(year=None, month=None):
     # Last row - Buttons
     row = []
     slot1 = InlineKeyboardButton("<", callback_data=create_callback_data("PREV-MONTH", year, month, day))
-    slot2 = InlineKeyboardButton(" ", callback_data=data_ignore)
+    slot2 = InlineKeyboardButton("СЕГОДНЯ", callback_data=create_callback_data("DAY", now.year, now.month, now.day))
     slot3 = InlineKeyboardButton(">", callback_data=create_callback_data("NEXT-MONTH", year, month, day))
     keyboard.row(slot1, slot2, slot3)
     # keyboard.add(row)
