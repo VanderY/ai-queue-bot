@@ -188,13 +188,5 @@ async def reg(message: types.Message):
         await message.answer("Введите свою Фамилию и Имя")
 
 
-# @dp.message_handler(commands=['start'])
-# async def start(message: types.Message):
-#     username = message.from_user.username
-#     telegram_id = message.from_user.id
-#     await message.answer(f"Привет {username}!\n"
-#                          f"Твой telegram_id: {telegram_id}")
-
-
 if __name__ == '__main__':
     executor.start_polling(dp)
