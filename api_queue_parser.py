@@ -7,5 +7,10 @@ def get_schedule(group, date):
     return response.json()
 
 
+def get_queue_by_id(id: str):
+    response = requests.get(BASE_API_URL + f"subject/get/{id}")
+    return response.json()
+
+
 def get_groups():
     return {"921701", "921702", "921703", "921704"}

@@ -10,16 +10,39 @@ def callback_to_json(data):
     separated_data = data.split(";")
     json_data = {
         "telegramId": separated_data[0],
-        "subject": separated_data[2],
-        "date": separated_data[5],
-        "qplace": str(separated_data[6])
+        "subjectId": separated_data[2],
+        "qplace": str(separated_data[3])
     }
     return json_data
 
 
-def add_student(callback_data) -> str:
+def list_students(lesson_data: dict) -> list:
+    students = []
+    sorted_students = sorted(lesson_data['students'], key=lambda x: x['placeNum'])
+    for student in lesson_data['students']:
+        students.append(f"{student['placeNum']}. {student['studentID']['name']}\n")
+    return students
+
+
+def queue_json_to_add(id_data, number_in_queue, telegram_id, date):
+    if register.is_registered(telegram_id):
+        json_data = {
+            "telegramId": str(telegram_id),
+            "subjectId": str(id_data),
+            "date": str(date),
+            "qplace": str(number_in_queue)
+        }
+        try:
+            r = requests.post(url=BASE_API_URL + "putIntoTheQueue", json=json_data)
+            return r.text.replace('"', '')
+        except requests.exceptions:
+            return ""
+
+
+def add_student(callback_data, telegram_id) -> str:
     print(callback_data)
-    if register.is_registered(callback_data["telegramId"]):
+
+    if register.is_registered(telegram_id):
         try:
             r = requests.post(url=BASE_API_URL + "putIntoTheQueue", json=callback_data)
             return r.text.replace('"', '')

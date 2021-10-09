@@ -4,6 +4,7 @@ import logging
 import requests
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+import api_queue_parser
 from StateMachine import StateMachine
 import config
 import TGCalendar.telegramcalendar as tgcalendar
@@ -36,10 +37,11 @@ async def process_lesson_callback(callback_query: types.CallbackQuery):
     await state.set_data(callback_query.data)
     data = str(await state.get_data())
     separated_data = data.split(";")
-
-    date = datetime.strptime(separated_data[4], '%Y-%m-%d')
-    await bot.edit_message_text(text=f'Напишите предпочитаемый номер в очереди на '
-                                     f'{separated_data[1]}({separated_data[2]}) {date.strftime("%d.%m.%Y")}',
+    lesson_data = api_queue_parser.get_queue_by_id(separated_data[1])
+    # date = datetime.strptime(separated_data[4], '%Y-%m-%d')
+    students_list = queue_api.list_students(lesson_data)
+    await bot.edit_message_text(text=f'\nНапишите предпочитаемый номер в очереди на '
+                                     f'{lesson_data["lesson"]}({lesson_data["lessonType"]}) {lesson_data["lessonTime"]}',
                                 chat_id=callback_query.message.chat.id,
                                 message_id=callback_query.message.message_id)
 
@@ -47,19 +49,22 @@ async def process_lesson_callback(callback_query: types.CallbackQuery):
 @dp.message_handler(state=StateMachine.QUEUE_NUMBER_WAITING)
 async def place_in_queue_message(message: types.Message):
     state = dp.current_state(user=message.chat.id)
-    parsed_data = queue_api.callback_to_json(str(message.from_user.id)
-                                             + ";" + str(await state.get_data())
-                                             + ";" + message.text)
-    is_added = queue_api.add_student(parsed_data)
+    # parsed_data = queue_api.callback_to_json(str(message.from_user.id)
+    #                                          + ";" + str(await state.get_data())
+    #                                          + ";" + message.text)
+    id_data = str(await state.get_data()).split(";")
+    lesson_data = api_queue_parser.get_queue_by_id(id_data[1])
+    is_added = queue_api.queue_json_to_add(id_data[1], message.text, message.from_user.id, id_data[2])
+    # is_added = queue_api.add_student(lesson_data, str(message.from_user.id))
     print(is_added)
-    date = datetime.strptime(parsed_data["date"], '%Y-%m-%d')
+
     if is_added == "ACCEPTED":
         await state.reset_state()
-        await message.answer(f'Вы успешно записались на {parsed_data["qplace"]} место\n'
-                             f'на {parsed_data["subject"]} {date.strftime("%d.%m.%Y")}')
+        await message.answer(f'Вы успешно записались на {message.text} место\n'
+                             f'на {lesson_data["lesson"]} {lesson_data["lessonTime"]}')
     elif is_added == "CONFLICT":
         keyboard = kb.yes_no_keyboard(message.text)
-        await message.answer(text=f'Вы уже записаны в очередь на {parsed_data["subject"]} {date.strftime("%d.%m.%Y")}, '
+        await message.answer(text=f'Вы уже записаны в очередь на {lesson_data["lesson"]} {lesson_data["lessonTime"]}, '
                                   f'хотите перезаписаться?',
                              reply_markup=keyboard)
     elif is_added == "BAD_REQUEST":
@@ -166,7 +171,7 @@ async def callback_calendar(callback_query: types.CallbackQuery):
 async def register_message(message: types.Message):
     state = dp.current_state(user=message.chat.id)
     name = message.text
-
+    print("register name: " + message.text)
     if name == "":
         await message.answer(f"Вам нужно корректно написать свою фамилию и имя!\nФормат: Фамилия Имя")
     else:
