@@ -37,13 +37,50 @@ async def process_lesson_callback(callback_query: types.CallbackQuery):
     await state.set_data(callback_query.data)
     data = str(await state.get_data())
     separated_data = data.split(";")
-    lesson_data = api_queue_parser.get_queue_by_id(separated_data[1])
+    closest_kb = InlineKeyboardMarkup(row_width=1)
+    closest_kb.add(InlineKeyboardButton("Записаться на ближайшее место", callback_data="closest"))
+    lesson_data = api_queue_parser.get_subject_by_id(separated_data[1])
     # date = datetime.strptime(separated_data[4], '%Y-%m-%d')
-    students_list = queue_api.list_students(lesson_data)
+    # students_list = queue_api.list_students(lesson_data)
     await bot.edit_message_text(text=f'\nНапишите предпочитаемый номер в очереди на '
-                                     f'{lesson_data["lesson"]}({lesson_data["lessonType"]}) {lesson_data["lessonTime"]}',
+                                     f'{separated_data[3]}({separated_data[4]}) {separated_data[2]}',
                                 chat_id=callback_query.message.chat.id,
-                                message_id=callback_query.message.message_id)
+                                message_id=callback_query.message.message_id,
+                                reply_markup=closest_kb)
+
+
+@dp.callback_query_handler(lambda c: c.data.startswith('closest'), state=StateMachine.QUEUE_NUMBER_WAITING)
+async def closest_place_choose(callback_query: types.CallbackQuery):
+    state = dp.current_state(user=callback_query.message.chat.id)
+    id_data = str(await state.get_data()).split(";")
+    lesson_data = api_queue_parser.get_subject_by_id(id_data[1])
+    is_added = queue_api.queue_json_to_add(id_data[1], None, callback_query.message.chat.id, id_data[2])
+    # is_added = queue_api.add_student(lesson_data, str(message.from_user.id))
+    print(is_added)
+
+    if is_added == "ACCEPTED":
+        await state.reset_state()
+        queue = api_queue_parser.get_queue_by_id(str(id_data[1]))
+        students = ""
+        for student in queue:
+            students += f"{student}\n"
+        await callback_query.message.answer(f'Очередь на {lesson_data["lesson"]}'
+                                            f' {lesson_data["lessonTime"]}\n'
+                                            f'{students}')
+        await callback_query.answer()
+    elif is_added == "CONFLICT":
+        keyboard = kb.yes_no_keyboard(callback_query.message.text)
+        await callback_query.message.answer(text=f'Вы уже записаны в очередь на {lesson_data["lesson"]}'
+                                                 f' {lesson_data["lessonTime"]}, '
+                                                 f'хотите перезаписаться?',
+                                            reply_markup=keyboard)
+    elif is_added == "BAD_REQUEST":
+        await callback_query.message.answer(text=f'Введите корректное значение')
+    elif is_added == "LOCKED":
+        await callback_query.message.answer(text=f'Это место уже занято, введите другое')
+    else:
+        await state.reset_state()
+        await callback_query.message.answer('Произошла непредвиденная ошибка, пожалуйста попробуйте позже')
 
 
 @dp.message_handler(state=StateMachine.QUEUE_NUMBER_WAITING)
@@ -53,15 +90,20 @@ async def place_in_queue_message(message: types.Message):
     #                                          + ";" + str(await state.get_data())
     #                                          + ";" + message.text)
     id_data = str(await state.get_data()).split(";")
-    lesson_data = api_queue_parser.get_queue_by_id(id_data[1])
+    lesson_data = api_queue_parser.get_subject_by_id(id_data[1])
     is_added = queue_api.queue_json_to_add(id_data[1], message.text, message.from_user.id, id_data[2])
     # is_added = queue_api.add_student(lesson_data, str(message.from_user.id))
     print(is_added)
 
     if is_added == "ACCEPTED":
         await state.reset_state()
-        await message.answer(f'Вы успешно записались на {message.text} место\n'
-                             f'на {lesson_data["lesson"]} {lesson_data["lessonTime"]}')
+        queue = api_queue_parser.get_queue_by_id(str(id_data[1]))
+        students = ""
+        for student in queue:
+            students += f"{student}\n"
+        await message.answer(f'Очередь на {lesson_data["lesson"]}'
+                                            f' {lesson_data["lessonTime"]}\n'
+                                            f'{students}')
     elif is_added == "CONFLICT":
         keyboard = kb.yes_no_keyboard(message.text)
         await message.answer(text=f'Вы уже записаны в очередь на {lesson_data["lesson"]} {lesson_data["lessonTime"]}, '
@@ -72,6 +114,7 @@ async def place_in_queue_message(message: types.Message):
     elif is_added == "LOCKED":
         await message.answer(text=f'Это место уже занято, введите другое')
     else:
+        await state.reset_state()
         await message.answer('Произошла непредвиденная ошибка, пожалуйста попробуйте позже')
 
 
@@ -81,11 +124,11 @@ async def rewriting_yes_no_choose(callback_query: types.CallbackQuery):
     data = str(await state.get_data())
     separated_state_data = data.split(";")
     separated_callback_data = callback_query.data.split(";")
-    date = datetime.strptime(separated_state_data[4], '%Y-%m-%d')
+    date = datetime.strptime(separated_state_data[2], '%Y-%m-%d')
     await bot.answer_callback_query(callback_query.id)
     if separated_callback_data[1] == "yes":
         await bot.edit_message_text(text=f'Введите новое место в очереди на '
-                                         f'{separated_state_data[1]}({separated_state_data[2]}) {date.strftime("%d.%m.%Y")}',
+                                         f'{separated_state_data[3]}({separated_state_data[4]}) {date.strftime("%d.%m.%Y")}',
                                     chat_id=callback_query.message.chat.id,
                                     message_id=callback_query.message.message_id)
         await state.set_state(StateMachine.all()[2])
@@ -103,8 +146,26 @@ async def rewriting_yes_no_choose(callback_query: types.CallbackQuery):
 @dp.message_handler(state=StateMachine.REWRITING_QUEUE_NUMBER)
 async def place_in_queue_message(message: types.Message):
     state = dp.current_state(user=message.chat.id)
-    await state.reset_state()
-    await message.answer('Заглушка для изменения места в очереди')
+    id_data = str(await state.get_data()).split(";")
+    is_added = queue_api.queue_json_to_add(id_data[1], message.text, message.from_user.id, id_data[2], "true")
+
+    lesson_data = api_queue_parser.get_subject_by_id(id_data[1])
+    if is_added == "ACCEPTED":
+        await state.reset_state()
+        await message.answer(f'Вы успешно записались на {message.text} место\n'
+                             f'на {lesson_data["lesson"]} {lesson_data["lessonTime"]}')
+    elif is_added == "CONFLICT":
+        keyboard = kb.yes_no_keyboard(message.text)
+        await message.answer(text=f'Вы уже записаны в очередь на {lesson_data["lesson"]} {lesson_data["lessonTime"]}, '
+                                  f'хотите перезаписаться?',
+                             reply_markup=keyboard)
+    elif is_added == "BAD_REQUEST":
+        await message.answer(text=f'Введите корректное значение')
+    elif is_added == "LOCKED":
+        await message.answer(text=f'Это место уже занято, введите другое')
+    else:
+        await state.reset_state()
+        await message.answer('Произошла непредвиденная ошибка, пожалуйста попробуйте позже')
 
 
 @dp.callback_query_handler(lambda c: c.data.startswith('subgroup'))

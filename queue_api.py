@@ -24,19 +24,32 @@ def list_students(lesson_data: dict) -> list:
     return students
 
 
-def queue_json_to_add(id_data, number_in_queue, telegram_id, date):
+def queue_json_to_add(id_data, number_in_queue, telegram_id, date, replace=str("false")):
     if register.is_registered(telegram_id):
-        json_data = {
-            "telegramId": str(telegram_id),
-            "subjectId": str(id_data),
-            "date": str(date),
-            "qplace": str(number_in_queue)
-        }
+        if number_in_queue is not None:
+            json_data = {
+                "telegramId": str(telegram_id),
+                "subjectId": str(id_data),
+                "date": str(date),
+                "qplace": str(number_in_queue),
+                "replace": replace
+            }
+        else:
+            null = number_in_queue
+            json_data = {
+                "telegramId": str(telegram_id),
+                "subjectId": str(id_data),
+                "date": str(date),
+                "qplace": null,
+                "replace": replace
+            }
         try:
             r = requests.post(url=BASE_API_URL + "putIntoTheQueue", json=json_data)
             return r.text.replace('"', '')
         except requests.exceptions:
             return ""
+    else:
+        return "penis"
 
 
 def add_student(callback_data, telegram_id) -> str:

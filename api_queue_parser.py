@@ -7,8 +7,13 @@ def get_schedule(group, date):
     return response.json()
 
 
-def get_queue_by_id(id: str):
+def get_subject_by_id(id: str):
     response = requests.get(BASE_API_URL + f"subject/get/{id}")
+    return response.json()
+
+
+def get_queue_by_id(id: str):
+    response = requests.get(BASE_API_URL + f"queue/get/{id}")
     return response.json()
 
 
