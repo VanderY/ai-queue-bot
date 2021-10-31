@@ -180,7 +180,8 @@ async def callback_subgroup(callback_query: types.CallbackQuery):
                                     chat_id=callback_query.message.chat.id,
                                     message_id=callback_query.message.message_id)
     elif register_status == "CONFLICT":
-        await bot.edit_message_text(text="Пользователь с таким telegramId уже существует",
+        await bot.edit_message_text(text="Пользователь с таким telegramId уже существует\n"
+                                         "(Посхалка!!!!!! напиши /anekdot там смешно(честно))",
                                     chat_id=callback_query.message.chat.id,
                                     message_id=callback_query.message.message_id)
     else:
@@ -218,7 +219,7 @@ async def calendar(message: types.Message):
         cld = tgcalendar.create_calendar()
         await message.answer('Пожалуйтса, выберите дату:', reply_markup=cld)
     else:
-        await message.answer('Зарегистрируйтесь при помощи команды /reg Фамилия Имя')
+        await message.answer('Зарегистрируйтесь при помощи команды /reg')
 
 
 @dp.callback_query_handler(lambda c: c.data)
