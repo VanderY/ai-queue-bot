@@ -34,6 +34,6 @@ def get_subgroup(student_data):
 
 def yes_no_keyboard(number_in_queue):
     yes_no_kb = InlineKeyboardMarkup(row_width=2)
-    yes_btn = InlineKeyboardButton("Да", callback_data="choose;yes")
-    no_btn = InlineKeyboardButton("Нет", callback_data="choose;no")
+    yes_btn = InlineKeyboardButton("Да", callback_data=f"choose;yes;{number_in_queue}")
+    no_btn = InlineKeyboardButton("Нет", callback_data=f"choose;no;{number_in_queue}")
     return yes_no_kb.add(yes_btn, no_btn)
