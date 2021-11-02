@@ -1,6 +1,10 @@
 import sys
 
 import requests
+from aiogram import types
+
+import api_queue_parser
+import keyboards
 import register
 
 from config import BASE_API_URL
@@ -50,6 +54,48 @@ def queue_json_to_add(id_data, number_in_queue, telegram_id, date, replace=str("
             return ""
     else:
         return "penis"
+
+
+async def status_code_handler(status_code, state, lesson_id: str, lesson_name: str, lesson_time: str, number_in_queue: int = None):
+    message = types.Message()
+    if status_code == "ACCEPTED":
+        queue = api_queue_parser.get_queue_by_id(lesson_id)
+        students = ""
+        for student in queue:
+            students += f"{student}\n"
+        message = types.Message(text=f'Очередь на {lesson_name}'
+                                     f' {lesson_time}:\n'
+                                     f'{students}')
+        await state.reset_state()
+        return message
+    elif status_code == "CONFLICT":
+        keyboard = keyboards.yes_no_keyboard(number_in_queue)
+        if number_in_queue is not None:
+            message = types.Message(text=f'Вы уже записаны в очередь на {lesson_name}'
+                                         f' {lesson_time}, '
+                                         f'хотите перезаписаться?',
+                                    reply_markup=keyboard)
+        else:
+            message = types.Message(text=f'Вы уже записаны в очередь на {lesson_name}'
+                                         f' {lesson_time}, '
+                                         f'хотите перезаписаться на ближайшее место?',
+                                    reply_markup=keyboard)
+        return message
+    elif status_code == "BAD_REQUEST":
+        message = types.Message(text=f'Введите корректное значение')
+        return message
+    elif status_code == "BAD_GATEWAY":
+        message = types.Message(text=f'Вы пытаетесь записаться не в свою подгруппу либо на недоступный предмет')
+        return message
+    elif status_code == "LOCKED":
+        message = types.Message(text=f'Это место уже занято, введите другое')
+        return message
+    elif status_code == "NOT_ACCEPTABLE":
+        message = types.Message(text=f'Нельзя записаться на предмет дальше, чем 2 недели')
+        return message
+    else:
+        message = types.Message(text='Произошла непредвиденная ошибка, пожалуйста попробуйте позже')
+        return message
 
 
 def add_student(callback_data, telegram_id) -> str:

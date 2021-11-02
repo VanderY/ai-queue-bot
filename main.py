@@ -73,76 +73,45 @@ async def closest_place_choose(callback_query: types.CallbackQuery):
     state = dp.current_state(user=callback_query.message.chat.id)
     id_data = str(await state.get_data()).split(";")
     lesson_data = api_queue_parser.get_subject_by_id(id_data[1])
-    is_added = queue_api.queue_json_to_add(id_data[1], None, callback_query.message.chat.id, id_data[2], "true")
+    is_added = queue_api.queue_json_to_add(id_data[1], None, callback_query.message.chat.id, id_data[2])
     # is_added = queue_api.add_student(lesson_data, str(message.from_user.id))
     print(is_added)
-
-    if is_added == "ACCEPTED":
-        await state.reset_state()
-        queue = api_queue_parser.get_queue_by_id(str(id_data[1]))
-        students = ""
-        for student in queue:
-            students += f"{student}\n"
-        await callback_query.message.answer(f'Очередь на {lesson_data["lesson"]}'
-                                            f' {lesson_data["lessonTime"]}\n'
-                                            f'{students}')
-        await callback_query.answer()
-    elif is_added == "CONFLICT":
-        keyboard = kb.yes_no_keyboard(callback_query.message.text)
-        await callback_query.message.answer(text=f'Вы уже записаны в очередь на {lesson_data["lesson"]}'
-                                                 f' {lesson_data["lessonTime"]}, '
-                                                 f'хотите перезаписаться?',
-                                            reply_markup=keyboard)
-    elif is_added == "BAD_REQUEST":
-        await callback_query.answer(text=f'Введите корректное значение')
-    elif is_added == "BAD_GATEWAY":
-        await callback_query.answer(text=f'Вы пытаетесь записаться не в свою подгруппу')
-    elif is_added == "LOCKED":
-        await callback_query.answer(text=f'Это место уже занято, введите другое')
-    elif is_added == "NOT_ACCEPTABLE":
-        await callback_query.answer(text=f'Нельзя записаться на предмет дальше, чем 2 недели')
-    else:
-        await state.reset_state()
-        await callback_query.answer('Произошла непредвиденная ошибка, пожалуйста попробуйте позже')
+    message_to_out = await queue_api.status_code_handler(is_added,
+                                                         state,
+                                                         id_data[1],
+                                                         lesson_data["lesson"],
+                                                         lesson_data["lessonTime"])
+    await callback_query.message.answer(text=message_to_out["text"], reply_markup=message_to_out["reply_markup"])
+    await callback_query.answer()
 
 
 @dp.message_handler(state=StateMachine.QUEUE_NUMBER_WAITING)
 async def place_in_queue_message(message: types.Message):
     state = dp.current_state(user=message.chat.id)
-    # parsed_data = queue_api.callback_to_json(str(message.from_user.id)
-    #                                          + ";" + str(await state.get_data())
-    #                                          + ";" + message.text)
+
     id_data = str(await state.get_data()).split(";")
     lesson_data = api_queue_parser.get_subject_by_id(id_data[1])
-    is_added = queue_api.queue_json_to_add(id_data[1], message.text, message.from_user.id, id_data[2])
-    # is_added = queue_api.add_student(lesson_data, str(message.from_user.id))
-    print(is_added)
 
-    if is_added == "ACCEPTED":
-        await state.reset_state()
-        queue = api_queue_parser.get_queue_by_id(str(id_data[1]))
-        students = ""
-        for student in queue:
-            students += f"{student}\n"
-        await message.answer(f'Очередь на {lesson_data["lesson"]}'
-                             f' {lesson_data["lessonTime"]}\n'
-                             f'{students}')
-    elif is_added == "CONFLICT":
-        keyboard = kb.yes_no_keyboard(message.text)
-        await message.answer(text=f'Вы уже записаны в очередь на {lesson_data["lesson"]} {lesson_data["lessonTime"]}, '
-                                  f'хотите перезаписаться?',
-                             reply_markup=keyboard)
-    elif is_added == "BAD_REQUEST":
-        await message.answer(text=f'Введите корректное значение')
-    elif is_added == "BAD_GATEWAY":
-        await message.answer(text=f'Вы пытаетесь записаться не в свою подгруппу')
-    elif is_added == "LOCKED":
-        await message.answer(text=f'Это место уже занято, введите другое')
-    elif is_added == "NOT_ACCEPTABLE":
-        await message.answer(text=f'Нельзя записаться на предмет дальше, чем 2 недели')
+    if message.text.isdigit():
+        is_added = queue_api.queue_json_to_add(id_data[1], message.text,
+                                               message.chat.id, id_data[2])
+        message_to_out = await queue_api.status_code_handler(is_added,
+                                                             state,
+                                                             id_data[1],
+                                                             lesson_data["lesson"],
+                                                             lesson_data["lessonTime"],
+                                                             int(message.text))
     else:
-        await state.reset_state()
-        await message.answer('Произошла непредвиденная ошибка, пожалуйста попробуйте позже')
+        is_added = queue_api.queue_json_to_add(id_data[1], None,
+                                               message.chat.id, id_data[2])
+        message_to_out = await queue_api.status_code_handler(is_added,
+                                                             state,
+                                                             id_data[1],
+                                                             lesson_data["lesson"],
+                                                             lesson_data["lessonTime"],
+                                                             None)
+    print(is_added)
+    await message.answer(text=message_to_out["text"], reply_markup=message_to_out["reply_markup"])
 
 
 @dp.callback_query_handler(lambda c: c.data.startswith('choose'), state=StateMachine.QUEUE_NUMBER_WAITING)
@@ -156,36 +125,28 @@ async def rewriting_yes_no_choose(callback_query: types.CallbackQuery):
     if separated_callback_data[1] == "yes":
         id_data = str(await state.get_data()).split(";")
         lesson_data = api_queue_parser.get_subject_by_id(id_data[1])
-        is_added = queue_api.queue_json_to_add(id_data[1], separated_callback_data[2],
-                                               callback_query.message.chat.id, id_data[2], "true")
+        if separated_callback_data[2].isdigit():
+            is_added = queue_api.queue_json_to_add(id_data[1], separated_callback_data[2],
+                                                   callback_query.message.chat.id, id_data[2], "true")
+            message_to_out = await queue_api.status_code_handler(is_added,
+                                                                 state,
+                                                                 id_data[1],
+                                                                 lesson_data["lesson"],
+                                                                 lesson_data["lessonTime"],
+                                                                 int(separated_callback_data[2]))
+        else:
+            is_added = queue_api.queue_json_to_add(id_data[1], None,
+                                                   callback_query.message.chat.id, id_data[2], "true")
+            message_to_out = await queue_api.status_code_handler(is_added,
+                                                                 state,
+                                                                 id_data[1],
+                                                                 lesson_data["lesson"],
+                                                                 lesson_data["lessonTime"],
+                                                                 None)
         print(is_added)
 
-        if is_added == "ACCEPTED":
-            queue = api_queue_parser.get_queue_by_id(str(id_data[1]))
-            students = ""
-            for student in queue:
-                students += f"{student}\n"
-            await callback_query.message.answer(f'Очередь на {lesson_data["lesson"]}'
-                                                f' {lesson_data["lessonTime"]}\n'
-                                                f'{students}')
-            await state.reset_state()
-        elif is_added == "CONFLICT":
-            keyboard = kb.yes_no_keyboard(separated_callback_data[2])
-            await callback_query.message.answer(
-                text=f'Вы уже записаны в очередь на {lesson_data["lesson"]} {lesson_data["lessonTime"]}, '
-                     f'хотите перезаписаться?',
-                reply_markup=keyboard)
-        elif is_added == "BAD_REQUEST":
-            await callback_query.message.answer(text=f'Введите корректное значение')
-        elif is_added == "BAD_GATEWAY":
-            await callback_query.answer(text=f'Вы пытаетесь записаться не в свою подгруппу')
-        elif is_added == "LOCKED":
-            await callback_query.message.answer(text=f'Это место уже занято, введите другое')
-        elif is_added == "NOT_ACCEPTABLE":
-            await callback_query.answer(text=f'Нельзя записаться на предмет дальше, чем 2 недели')
-        else:
-            await state.reset_state()
-            await callback_query.message.answer('Произошла непредвиденная ошибка, пожалуйста попробуйте позже')
+        await callback_query.message.answer(text=message_to_out["text"], reply_markup=message_to_out["reply_markup"])
+        await state.reset_state()
     elif separated_callback_data[1] == "no":
         await state.reset_state()
         await bot.edit_message_text(text="Хорошо.\nЕсли захотите записаться на другой предмет, пишите /queue",
@@ -204,26 +165,13 @@ async def place_in_queue_message(message: types.Message):
     is_added = queue_api.queue_json_to_add(id_data[1], message.text, message.from_user.id, id_data[2], "true")
     print(is_added)
     lesson_data = api_queue_parser.get_subject_by_id(id_data[1])
-    if is_added == "ACCEPTED":
-        await state.reset_state()
-        await message.answer(f'Вы успешно записались на {message.text} место\n'
-                             f'на {lesson_data["lesson"]} {lesson_data["lessonTime"]}')
-    elif is_added == "CONFLICT":
-        keyboard = kb.yes_no_keyboard(message.text)
-        await message.answer(text=f'Вы уже записаны в очередь на {lesson_data["lesson"]} {lesson_data["lessonTime"]}, '
-                                  f'хотите перезаписаться?',
-                             reply_markup=keyboard)
-    elif is_added == "BAD_REQUEST":
-        await message.answer(text=f'Введите корректное значение')
-    elif is_added == "BAD_GATEWAY":
-        await message.answer(text=f'Вы пытаетесь записаться не в свою подгруппу')
-    elif is_added == "LOCKED":
-        await message.answer(text=f'Это место уже занято, введите другое')
-    elif is_added == "NOT_ACCEPTABLE":
-        await message.answer(text=f'Нельзя записаться на предмет дальше, чем 2 недели')
-    else:
-        await state.reset_state()
-        await message.answer('Произошла непредвиденная ошибка, пожалуйста попробуйте позже')
+    message_to_out = queue_api.status_code_handler(is_added,
+                                                   state,
+                                                   id_data[1],
+                                                   lesson_data["lesson"],
+                                                   lesson_data["lessonTime"])
+    await message.answer(text=message_to_out["text"], reply_markup=message_to_out["reply_markup"])
+    await state.reset_state()
 
 
 @dp.callback_query_handler(lambda c: c.data.startswith('subgroup'))
