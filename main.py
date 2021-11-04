@@ -2,10 +2,11 @@ import json
 import logging
 
 import requests
+from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup
 
 import api_queue_parser
-from StateMachine import StateMachine
+from StateMachine import StateMachine, UserStates
 import config
 import TGCalendar.telegramcalendar as tgcalendar
 from aiogram import Bot, Dispatcher, executor, types
@@ -35,6 +36,41 @@ async def exit_state(message: types.Message):
     await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id - 1)
     await message.answer("Действие отменено")
     await state.reset_state()
+
+
+@dp.message_handler(lambda m: m.text.startswith('👀Посмотреть очередь👀'), state='*')
+async def queue_viewing_start(message: types.Message):
+    state = dp.current_state(user=message.chat.id)
+    cld = tgcalendar.create_calendar()
+    await message.answer('Пожалуйста, выберите дату:', reply_markup=cld)
+    await UserStates.viewing_queue.set()
+
+
+@dp.callback_query_handler(lambda c: c.data.startswith('lesson'), state=UserStates.viewing_queue)
+async def queue_viewing_lesson_callback(callback_query: types.CallbackQuery, state: FSMContext):
+    separated_data = callback_query.data.split(";")
+    lesson_data = api_queue_parser.get_subject_by_id(separated_data[1])
+    queue = api_queue_parser.get_queue_by_id(str(separated_data[1]))
+    students = ""
+    for student in queue:
+        students += f"{student}\n"
+    if students != "Queue is empty!\n":
+        await bot.edit_message_text(f'Очередь на {lesson_data["lesson"]} {separated_data[2]} '
+                                    f'{lesson_data["lessonTime"]}\n'
+                                    f'{students}',
+                                    chat_id=callback_query.message.chat.id,
+                                    message_id=callback_query.message.message_id)
+    else:
+        await bot.edit_message_text(f'Очередь пуста :-(',
+                                    chat_id=callback_query.message.chat.id,
+                                    message_id=callback_query.message.message_id)
+
+
+@dp.callback_query_handler(lambda c: c.data, state=UserStates.viewing_queue)
+async def queue_viewing_calendar(callback_query: types.CallbackQuery, state: FSMContext):
+    response = tgcalendar.process_calendar_selection(bot, callback_query)
+    await response[0]
+    await bot.answer_callback_query(callback_query.id)
 
 
 @dp.callback_query_handler(lambda c: c.data.startswith('lesson'))
@@ -264,6 +300,7 @@ async def reg(message: types.Message):
     telegram_id = message.from_user.id
     exit_state_kb = ReplyKeyboardMarkup(resize_keyboard=True)
     exit_state_kb.add(types.KeyboardButton(text="📝Записаться в очередь📝"))
+    exit_state_kb.add(types.KeyboardButton(text="👀Посмотреть очередь👀"))
     exit_state_kb.add(types.KeyboardButton(text="❌Отменить действие❌"))
     if register.is_registered(telegram_id):
         await message.answer(f"Вы уже зарегистрированы", reply_markup=exit_state_kb)
