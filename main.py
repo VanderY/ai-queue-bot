@@ -52,6 +52,7 @@ async def queue_viewing_lesson_callback(callback_query: types.CallbackQuery, sta
     lesson_data = api_queue_parser.get_subject_by_id(separated_data[1])
     queue = api_queue_parser.get_queue_by_id(str(separated_data[1]))
     students = ""
+    await state.reset_state()
     for student in queue:
         students += f"{student}\n"
     if students != "Queue is empty!\n":
